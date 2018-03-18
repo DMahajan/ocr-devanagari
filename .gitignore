@@ -1,0 +1,12 @@
+# Compiled #
+############
+*.pyc
+
+# Model files #
+###############
+*.pkl
+
+# Dataset #
+###########
+*.zip
+DevanagariHandwrittenCharacterDataset/

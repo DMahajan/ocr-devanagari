@@ -34,13 +34,3 @@ character_6_cha
 character_7_chha
 character_8_ja
 character_9_jha
-digit_0
-digit_1
-digit_2
-digit_3
-digit_4
-digit_5
-digit_6
-digit_7
-digit_8
-digit_9

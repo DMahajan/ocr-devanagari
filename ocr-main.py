@@ -13,13 +13,11 @@ import sys
 
 
 
-def getFeat(featType, align):
-	trainDir = 'DevanagariHandwrittenCharacterDataset/Train'
+def getFeat(fileDir, featType, align):
 	classListFile = 'classlist.txt'
 	imgDim = 32
 
 	classes = [line.strip() for line in open(classListFile,'r')]
-	#xmat = np.zeros((1,imgDim**2),dtype=bool)
 
 	cell_size = 4
 	block_size = 2
@@ -47,13 +45,14 @@ def getFeat(featType, align):
 				img_edge = feature.canny(img)
 				h,theta,rho = transform.hough_line(img_edge)
 				# find angles around pi/2 (which should correspond to shirorekha)
-				h_peak, theta_peak, rho_peak = transform.hough_line_peaks(h,theta,rho)
+				h_peak, theta_peak, rho_peak = transform.hough_line_peaks(h,theta,rho,4)
 				print theta_peak
 				theta_rotate = np.abs(np.concatenate([theta_peak[theta_peak > 1.4], theta_peak[theta_peak < -1.4]]))
 				print theta_rotate
 				theta_rotate = np.mean(theta_rotate)
-				theta_deg = (theta_rotate*180/np.pi) - 90 #counterclockwise rotation
+				theta_deg = (theta_rotate*180/np.pi) #counterclockwise rotation
 				print "In degrees",theta_deg
+				theta_deg = theta_deg - 90
 				img_rot = transform.rotate(img,theta_deg)
 				plt.imshow(img_edge,cmap='gray')
 				fig = plt.figure()
@@ -65,16 +64,13 @@ def getFeat(featType, align):
 
 			if featType == "hog":
 				hogFeat = feature.hog(img,orientations=n_orientations,pixels_per_cell=(cell_size,cell_size),cells_per_block=(block_size,block_size))
-				#print hogFeat.shape
 				xmat = np.vstack((xmat,hogFeat))
 			elif featType == "sum":
 				val = filters.threshold_otsu(img)
 				imgBin = img < val
 				imgBin = imgBin.astype(bool)
-				#imgSum = np.sum(imgBin)
 				horSum = np.sum(imgBin,axis=0)
 				vertSum = np.sum(imgBin,axis=1)
-				#imgVec = imgBin.flatten()# vectorize
 				combSum = np.hstack((horSum,vertSum))
 				xmat = np.vstack((xmat,combSum))
 			else:
@@ -88,27 +84,45 @@ def getFeat(featType, align):
 	np.save('xmat_'+featType+str(cell_size)+str(block_size)+str(n_orientations)+'.npy',xmat)
 	np.save('ymat_'+featType+str(cell_size)+str(block_size)+str(n_orientations)+'.npy',ymat)
 	print type(imgBin[0,0])
-	#plt.imshow(imgBin, cmap='gray')
-	#plt.show()
+
 	return xmat,ymat
 
 def train(modelFile,xmat,ymat):
 	# Train SVM classifier
-	clf = svm.SVC() #default: 'ovr', one-vs-rest instead of one-vs-one
+	clf = svm.SVC(C=2.0) #default: 'ovr', one-vs-rest instead of one-vs-one
 	clf.fit(xmat, ymat)
 	trainAccuracy = clf.score(xmat,ymat)# training error
 	print trainAccuracy
-	joblib.dump(clf, modelFile) #CHANGE FILE NAME EACH TIME
+	joblib.dump(clf, modelFile)
 
+
+def test(modelFile,xmat,ymat):
+	# SVM classifier
+	clf = joblib.load(modelFile) 
+	testAccuracy = clf.score(xmat,ymat)
+	print testAccuracy
 
 
 if __name__ == '__main__':
 	start_time = time.time()
 	
-	featType = sys.argv[1]
-	align = int(sys.argv[2]) #1 if yes, 0 if no
-	xmat, ymat = getFeat(featType,align)
-	modelFile = sys.argv[3]
-	train(modelFile, xmat, ymat)
+	featType = sys.argv[2]
+	align = int(sys.argv[3]) #1 if yes, 0 if no
+	modelFile = sys.argv[4]
+
+
+	if sys.argv[1] == 'train':
+		fileDir = 'DevanagariHandwrittenCharacterDataset/Train'
+		xmat, ymat = getFeat(fileDir,featType,align)
+		train(modelFile, xmat, ymat)
+	elif sys.argv[1] == 'val':
+		fileDir = 'DevanagariHandwrittenCharacterDataset/Val'
+		xmat, ymat = getFeat(fileDir,featType,align)
+		test(modelFile, xmat, ymat)
+	else:
+		fileDir = 'DevanagariHandwrittenCharacterDataset/Test'
+		xmat, ymat = getFeat(fileDir,featType,align)
+		test(modelFile, xmat, ymat)
+
 
 	print("--- %s seconds ---" % (time.time() - start_time))

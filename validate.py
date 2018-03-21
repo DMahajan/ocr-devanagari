@@ -1,3 +1,5 @@
+## OUTDATED, not needed anymore ##
+
 import numpy as np
 from sklearn import svm
 from os.path import join
